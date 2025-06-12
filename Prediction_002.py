@@ -20,14 +20,14 @@ if train_file and test_file:
     train = pd.read_csv(train_file)
     test = pd.read_csv(test_file)
 
-    # ✅ Normalize column names early
+    # Normalize column names
     train.columns = train.columns.str.strip().str.lower()
     test.columns = test.columns.str.strip().str.lower()
 
-    # ✅ Save PassengerId after normalization
+    # Save PassengerId
     test_passenger_id = test['passengerid'].copy()
 
-    # Combine for preprocessing
+    # Preprocessing
     combine = [train, test]
     for dataset in combine:
         if 'age' in dataset.columns:
@@ -44,7 +44,6 @@ if train_file and test_file:
             dataset['sex'].fillna(-1, inplace=True)
             dataset['sex'] = dataset['sex'].astype(int)
 
-    # Drop unused columns
     drop_cols = ['name', 'ticket', 'cabin', 'passengerid']
     train = train.drop(columns=[col for col in drop_cols if col in train.columns])
     test = test.drop(columns=[col for col in drop_cols if col in test.columns])
@@ -69,17 +68,15 @@ if train_file and test_file:
     sns.histplot(data=train, x='age', hue='survived', bins=30, kde=True)
     st.pyplot()
 
-    # Train/validate split
+    # Modeling
     X = train.drop("survived", axis=1)
     y = train["survived"]
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Logistic Regression
     logreg = LogisticRegression(max_iter=200)
     logreg.fit(X_train, y_train)
     acc_log = accuracy_score(y_val, logreg.predict(X_val))
 
-    # Random Forest
     rf = RandomForestClassifier(n_estimators=100, random_state=42)
     rf.fit(X_train, y_train)
     acc_rf = accuracy_score(y_val, rf.predict(X_val))
@@ -91,7 +88,7 @@ if train_file and test_file:
         "Survived": final_predictions
     })
 
-    # Report
+    # Model Report
     report = f"""Model Performance Report - Titanic
 ----------------------------------
 Logistic Regression Accuracy: {acc_log:.4f}
@@ -99,22 +96,27 @@ Random Forest Accuracy:       {acc_rf:.4f}
 Final model used:             Random Forest (n_estimators=100)
 """
 
-    # Feature importance plot
+    # Feature Importance
     st.subheader("🌲 Feature Importances (Random Forest)")
     feature_importance = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=False)
     sns.barplot(x=feature_importance, y=feature_importance.index)
     st.pyplot()
 
-    # ZIP export
+    # 🧪 Create Excel in memory
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+        submission.to_excel(writer, sheet_name='Predictions', index=False)
+
+    # Create ZIP
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
-        zip_file.writestr("submission.csv", submission.to_csv(index=False))
+        zip_file.writestr("submission.xlsx", excel_buffer.getvalue())
         zip_file.writestr("report.txt", report)
 
-    # Download section
+    # Download
     st.subheader("📦 Download All Results")
     st.download_button(
-        label="Download ZIP (submission + report)",
+        label="Download ZIP (Excel + Report)",
         data=zip_buffer.getvalue(),
         file_name="titanic_results.zip",
         mime="application/zip"
