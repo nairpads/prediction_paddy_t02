@@ -20,14 +20,14 @@ if train_file and test_file:
     train = pd.read_csv(train_file)
     test = pd.read_csv(test_file)
 
-    # Normalize column names
+    # ✅ Normalize column names early
     train.columns = train.columns.str.strip().str.lower()
     test.columns = test.columns.str.strip().str.lower()
 
-    # Save PassengerId before dropping
+    # ✅ Save PassengerId after normalization
     test_passenger_id = test['passengerid'].copy()
 
-    # Combine for shared preprocessing
+    # Combine for preprocessing
     combine = [train, test]
     for dataset in combine:
         if 'age' in dataset.columns:
@@ -69,20 +69,22 @@ if train_file and test_file:
     sns.histplot(data=train, x='age', hue='survived', bins=30, kde=True)
     st.pyplot()
 
-    # Model training
+    # Train/validate split
     X = train.drop("survived", axis=1)
     y = train["survived"]
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
 
+    # Logistic Regression
     logreg = LogisticRegression(max_iter=200)
     logreg.fit(X_train, y_train)
     acc_log = accuracy_score(y_val, logreg.predict(X_val))
 
+    # Random Forest
     rf = RandomForestClassifier(n_estimators=100, random_state=42)
     rf.fit(X_train, y_train)
     acc_rf = accuracy_score(y_val, rf.predict(X_val))
 
-    # Predictions
+    # Final prediction
     final_predictions = rf.predict(test)
     submission = pd.DataFrame({
         "PassengerId": test_passenger_id,
@@ -97,13 +99,13 @@ Random Forest Accuracy:       {acc_rf:.4f}
 Final model used:             Random Forest (n_estimators=100)
 """
 
-    # Feature importance
+    # Feature importance plot
     st.subheader("🌲 Feature Importances (Random Forest)")
     feature_importance = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=False)
     sns.barplot(x=feature_importance, y=feature_importance.index)
     st.pyplot()
 
-    # ZIP output
+    # ZIP export
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
         zip_file.writestr("submission.csv", submission.to_csv(index=False))
